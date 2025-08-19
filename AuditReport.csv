@@ -1,0 +1,8 @@
+"Check","Result"
+"Firewall Domain","PASS"
+"Firewall Private","PASS"
+"Firewall Public","PASS"
+"Minimum Password Length","FAIL"
+"Maximum Password Age","FAIL"
+"Guest Account","PASS"
+"Remote Desktop","PASS"
