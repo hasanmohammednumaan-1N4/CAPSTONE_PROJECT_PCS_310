@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <title>Audit Tool</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .card {
+      max-width: 500px;
+      margin: auto;
+      border-radius: 15px;
+    }
+    .btn-audit {
+      width: 200px;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <div class="card border-primary shadow-sm">
+      <div class="card-body text-center">
+        <h1 class="card-title mb-3">Welcome to Audit Tool</h1>
+        <p class="card-text mb-4">Run system audits with one click</p>
+
+        <a href="/results?audit=password_policy" class="btn btn-primary btn-audit">Password Policy</a><br>
+        <a href="/results?audit=firewall" class="btn btn-success btn-audit">Firewall</a><br>
+        <a href="/results?audit=defender" class="btn btn-warning btn-audit">Windows Defender</a><br>
+        <a href="/results?audit=secure_boot" class="btn btn-info btn-audit">Secure Boot</a><br>
+        <a href="/results?audit=bitlocker" class="btn btn-dark btn-audit">BitLocker</a>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>
