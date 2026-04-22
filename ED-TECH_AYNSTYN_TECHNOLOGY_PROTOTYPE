@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aynstyn AI</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #e0c3fc, #fcd6e6, #fceabb);
+    display: flex;
+    height: 100vh;
+}
+
+.main-container {
+    display: flex;
+    width: 100%;
+}
+
+.sidebar {
+    width: 250px;
+    background: #2d033b;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+.sidebar h2 { text-align: center; }
+
+.new-chat {
+    background: #ff9a9e;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.chat-list { flex: 1; overflow-y: auto; }
+
+.chat-item {
+    padding: 8px;
+    margin: 5px 0;
+    background: #3a0ca3;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.chat-container {
+    flex: 1;
+    max-width: 420px;
+    margin: auto;
+    height: 600px;
+    background: white;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.header {
+    padding: 15px;
+    background: #6a0572;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+}
+
+.chat-box {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.message {
+    padding: 10px 14px;
+    margin: 8px 0;
+    border-radius: 12px;
+    max-width: 70%;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.user { background: #d1e7ff; align-self: flex-end; }
+.bot { background: #ffe0f0; align-self: flex-start; }
+
+.input-area {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+textarea {
+    flex: 1 1 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 5px;
+    resize: none;
+    height: 60px;
+    font-family: inherit;
+}
+
+button {
+    margin: 3px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 10px;
+    background: #ff9a9e;
+    cursor: pointer;
+}
+
+/* ✅ SUGGESTIONS */
+#suggestions {
+    position: absolute;
+    bottom: 80px;
+    left: 10px;
+    right: 10px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: none;
+    z-index: 10;
+}
+#suggestions div {
+    padding: 8px;
+    cursor: pointer;
+}
+#suggestions div:hover {
+    background: #eee;
+}
+</style>
+</head>
+
+<body>
+
+<div class="main-container">
+
+<div class="sidebar">
+    <h2>Aynstyn</h2>
+    <button class="new-chat" onclick="createNewChat()">+ New Chat</button>
+    <div class="chat-list" id="chatList"></div>
+</div>
+
+<div class="chat-container">
+    <div class="header">Aynstyn AI 🎓</div>
+    <div class="chat-box" id="chat"></div>
+
+    <div class="input-area">
+        <textarea id="question" placeholder="Ask something..."></textarea>
+        <div id="suggestions"></div>
+
+        <button onclick="getResponse()">Send</button>
+        <button onclick="startVoice()">🎤</button>
+        <button onclick="toggleVoice()" id="voiceBtn">🔊 ON</button>
+        <button onclick="stopGeneration()">⛔ Stop</button>
+        <button onclick="continueResponse()">➡️ Continue</button>
+    </div>
+</div>
+
+</div>
+
+<script>
+
+let voiceEnabled = false;
+let stopRequested = false;
+let conversation = [];
+
+let chats = JSON.parse(localStorage.getItem("allChats")) || {};
+let currentChatId = null;
+
+/* ================= CHAT SYSTEM ================= */
+
+function createNewChat() {
+    const id = "chat_" + Date.now();
+    chats[id] = { messages: [], title: "New Chat" };
+    currentChatId = id;
+    conversation = [];
+    saveChats();
+    renderChatList();
+    loadChat(id);
+}
+
+function saveChats() {
+    localStorage.setItem("allChats", JSON.stringify(chats));
+}
+
+function renderChatList() {
+    const chatList = document.getElementById("chatList");
+    chatList.innerHTML = "";
+
+    for (let id in chats) {
+        const div = document.createElement("div");
+        div.className = "chat-item";
+        div.innerText = chats[id].title;
+        div.onclick = () => loadChat(id);
+        chatList.appendChild(div);
+    }
+}
+
+function loadChat(id) {
+    currentChatId = id;
+    conversation = [];
+
+    const chatBox = document.getElementById("chat");
+    chatBox.innerHTML = "";
+
+    chats[id].messages.forEach(msg => {
+        addMessage(msg.text, msg.type, false);
+        conversation.push({
+            role: msg.type === "user" ? "user" : "assistant",
+            content: msg.text
+        });
+    });
+}
+
+function addMessage(text, type, save = true) {
+    const chat = document.getElementById("chat");
+
+    const msg = document.createElement("div");
+    msg.className = "message " + type;
+    msg.innerText = text;
+
+    chat.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+
+    if (save && currentChatId) {
+        chats[currentChatId].messages.push({ text, type });
+
+        if (chats[currentChatId].messages.length === 1) {
+            chats[currentChatId].title = text.substring(0, 25);
+        }
+
+        saveChats();
+        renderChatList();
+    }
+}
+
+/* ================= AI ================= */
+
+async function getResponse() {
+    const input = document.getElementById("question");
+    const q = input.value;
+
+    if (!q.trim()) return;
+
+    addMessage(q, "user");
+    input.value = "";
+
+    conversation.push({ role: "user", content: q });
+
+    const botMsg = document.createElement("div");
+    botMsg.className = "message bot";
+    botMsg.innerText = "AI is thinking...";
+    document.getElementById("chat").appendChild(botMsg);
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer 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",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: "meta-llama/llama-3-8b-instruct",
+                messages: conversation
+            })
+        });
+
+        const data = await response.json();
+        let answer = data.choices?.[0]?.message?.content || "No response.";
+
+        conversation.push({ role: "assistant", content: answer });
+
+        typeEffect(answer, botMsg);
+        if (voiceEnabled) speak(answer);
+
+    } catch {
+        botMsg.innerText = "Error.";
+    }
+}
+
+/* ================= AUTOCOMPLETE ================= */
+
+const words = ["support","super","subject","science","system","laws","language","learning","logic","math","machine","model"];
+
+const inputBox = document.getElementById("question");
+const suggestionBox = document.getElementById("suggestions");
+
+inputBox.addEventListener("input", () => {
+    const value = inputBox.value.toLowerCase();
+
+    if (!value) {
+        suggestionBox.style.display = "none";
+        return;
+    }
+
+    const matches = words.filter(w => w.startsWith(value));
+
+    suggestionBox.innerHTML = "";
+
+    matches.forEach(word => {
+        const div = document.createElement("div");
+        div.innerText = word;
+
+        div.onclick = () => {
+            inputBox.value = word;
+            suggestionBox.style.display = "none";
+        };
+
+        suggestionBox.appendChild(div);
+    });
+
+    suggestionBox.style.display = matches.length ? "block" : "none";
+});
+
+inputBox.addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && suggestionBox.style.display === "block") {
+        e.preventDefault();
+        const first = suggestionBox.firstChild;
+        if (first) {
+            inputBox.value = first.innerText;
+            suggestionBox.style.display = "none";
+        }
+    }
+});
+
+/* ================= OTHER ================= */
+
+function typeEffect(text, element) {
+    let i = 0;
+    element.innerText = "";
+    stopRequested = false;
+
+    const interval = setInterval(() => {
+        if (stopRequested) return clearInterval(interval);
+        element.innerText += text.charAt(i++);
+        if (i >= text.length) clearInterval(interval);
+    }, 15);
+}
+
+function speak(text) {
+    const speech = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(speech);
+}
+
+function toggleVoice() {
+    voiceEnabled = !voiceEnabled;
+    document.getElementById("voiceBtn").innerText = voiceEnabled ? "🔇 OFF" : "🔊 ON";
+}
+
+function stopGeneration() {
+    stopRequested = true;
+    window.speechSynthesis.cancel();
+}
+
+function continueResponse() {
+    if (conversation.length === 0) return;
+    document.getElementById("question").value = "Continue from where you left off.";
+    getResponse();
+}
+
+window.onload = function() {
+    renderChatList();
+    const keys = Object.keys(chats);
+    if (keys.length > 0) loadChat(keys[0]);
+    else createNewChat();
+};
+
+function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.start();
+    recognition.onresult = e => {
+        document.getElementById("question").value = e.results[0][0].transcript;
+    };
+}
+
+</script>
+
+</body>
+</html>
